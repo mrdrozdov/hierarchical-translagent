@@ -7,8 +7,8 @@ We present code for training and decoding both word- and sentence-level models a
 Dependencies
 ------------------
 ### Python
-* Python 2.7
-* PyTorch 0.2
+* Python 3.6
+* PyTorch 0.4.1
 * Numpy
 
 ### GPU
