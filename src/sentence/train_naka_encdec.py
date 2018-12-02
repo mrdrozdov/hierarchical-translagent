@@ -310,7 +310,7 @@ if __name__ == '__main__':
     best_epoch = -1
     best_bleu = {"valid":-1, "test":-1}
 
-    for epoch in xrange(args.num_games):
+    for epoch in range(args.num_games):
         curr_loss = forward_naka( train_images, train_labels, model, train_losses, args, loss_fn, tt )
         optimizer.zero_grad()
         curr_loss.backward()

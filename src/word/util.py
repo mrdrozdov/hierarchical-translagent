@@ -8,18 +8,20 @@
 import sys
 import os
 import torch
-import cPickle as pkl
+import pickle as pkl
 import codecs
 import numpy as np
 import collections
 
-from torch.autograd import Variable
+
+cdir = os.path.abspath(os.path.dirname(__file__))
+
 
 class Logger(object):
     def __init__(self, path, no_write=False, no_terminal=False):
         self.no_write = no_write
         if self.no_write:
-            print "Don't write to file"
+            print("Don't write to file")
         else:
             self.log = codecs.open(path+"log.log", "wb", encoding="utf8")
 
@@ -39,10 +41,10 @@ class Logger(object):
         pass
 
 def scr_path():
-    return "/misc/kcgscratch1/ChoGroup/jason/translagent_public/"
+    return os.path.abspath(os.path.join(cdir, "..", ".."))
 
 def saved_results_path():
-    return "/misc/kcgscratch1/ChoGroup/jason/saved_results/"
+    return os.path.abspath(os.path.join(cdir, "..", "..", "saved_results"))
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -78,11 +80,11 @@ def idx_to_onehot(indices, nb_digits): # input numpy array
     return y_onehot
 
 def max_logit_to_onehot(logits):
-    max_element, max_idx = torch.max(logits.cuda(), 1, keepdim=True)
+    max_element, max_idx = torch.max(logits, 1, keepdim=True)
     onehot = torch.FloatTensor(logits.size())
     onehot.zero_()
     onehot.scatter_(1, max_idx.data.long().cpu(), 1)
-    onehot = Variable(torch.FloatTensor(onehot), requires_grad=False).cuda()
+    onehot = torch.FloatTensor(onehot).data
     return onehot, max_idx.data
 
 def sample_logit_to_onehot(logits):
@@ -92,13 +94,13 @@ def sample_logit_to_onehot(logits):
     onehot.zero_()
     for ii, jj in enumerate(indices.data.cpu().numpy().flatten().tolist()):
         onehot[ii][jj] = 1
-    onehot = Variable(onehot, requires_grad=False).cuda()
+    onehot = onehot.data
     return onehot, indices.data
 
 def logit_to_acc(logits, y): # logits: [batch_size, num_of_classes]
     y_max, y_max_idx = torch.max(logits, 1) # [batch_size]
     eq = torch.eq(y_max_idx, y)
-    acc = float(eq.sum().data[0]) / float(eq.nelement())
+    acc = float(eq.sum().item()) / float(eq.nelement())
     return acc
 
 def logit_to_top_k(logits, y, k): # logits: [batch_size, num_of_classes]
@@ -110,7 +112,7 @@ def logit_to_top_k(logits, y, k): # logits: [batch_size, num_of_classes]
     eq2 = torch.sum(eq, 1)
     #acc = float(eq2.sum().data[0]) / float(eq2.nelement())
     #return acc
-    return eq2.sum().data[0], eq2.nelement()
+    return eq2.sum().item(), eq2.nelement()
 
 def loss_and_acc(logits, labels, loss_fn):
     loss = loss_fn(logits, labels)
@@ -160,30 +162,33 @@ def get_log_loss_dict():
 
 def get_avg_from_loss_dict(log_loss_dict):
     res = get_loss_dict()
-    for k1, v1 in log_loss_dict.iteritems(): # agent1 / agent2
-        for k2, v2 in v1.iteritems(): # spk / lsn
-            for k3, v3 in v2.iteritems(): # loss / acc
+    for k1, v1 in log_loss_dict.items(): # agent1 / agent2
+        for k2, v2 in v1.items(): # spk / lsn
+            for k3, v3 in v2.items(): # loss / acc
                 res[k1][k2][k3] = v3.avg
     return res
 
-#print "epoch {:5d} train | alpha {:.3f} | snd {:.4f} {:.2f}% | rcv {:.4f} {:.2f}% ".format(epoch, args.alpha, snd_losses.avg, snd_accs.avg*100, rcv_losses.avg, rcv_accs.avg*100)
+#print("epoch {:5d} train | alpha {:.3f} | snd {:.4f} {:.2f}% | rcv {:.4f} {:.2f}% ".format(epoch, args.alpha, snd_losses.avg, snd_accs.avg*100, rcv_losses.avg, rcv_accs.avg*100))
 def print_loss(epoch, alpha, avg_loss_dict, mode="train"):
     prt_msg = "epoch {:5d} {} | alpha {:.3f} ".format(epoch, mode, alpha)
     #avg_loss_dict = get_avg_from_loss_dict(loss_dict)
-    #for k1, v1 in avg_loss_dict.iteritems():
+    #for k1, v1 in avg_loss_dict.items():
     for agent in "agent1 agent2".split():
         prt_msg += "| {} :".format(agent) # agent1 / agent2
-        #for k2, v2 in v1.iteritems():
+        #for k2, v2 in v1.items():
         for person in "spk lsn".split():
             prt_msg += " {}".format(person) # spk / lsn
-            #for k3, v3 in v2.iteritems(): # loss / acc
+            #for k3, v3 in v2.items(): # loss / acc
             prt_msg += " {:.3f}".format(avg_loss_dict[agent][person]["loss"])
             prt_msg += " {:.2f}".format(avg_loss_dict[agent][person]["acc"])
             prt_msg += "% |"
     return prt_msg
 
 def bergsma_words(lang):
-    words = open('/misc/kcgscratch1/ChoGroup/jason/fair/bergsma_data/Share/Lexicons/500/pictureWords.{}'.format(lang)).readlines()
+    # fn = '/misc/kcgscratch1/ChoGroup/jason/fair/bergsma_data/Share/Lexicons/500/pictureWords.{}'.format(lang)
+    fn = os.path.join(scr_path(), 'data', 'word', 'Lexicons', '500', 'pictureWords.{}'.format(lang))
+    with open(fn) as f:
+        words = f.readlines()
     words = [x.strip() for x in words if x.strip() != ""]
     words = [x.split("\t") for x in words]
     words = [words[key][1] for key in range(len(words))]

@@ -44,11 +44,11 @@ class NakaAgent(torch.nn.Module):
     def __init__(self, native, foreign, args):
         super(NakaAgent, self).__init__()
         if args.no_share_bhd:
-            print "Not sharing visual system for each agent."
+            print("Not sharing visual system for each agent.")
             self.beholder1 = Beholder(args)
             self.beholder2 = Beholder(args)
         else:
-            print "Sharing visual system for each agent."
+            print("Sharing visual system for each agent.")
             self.beholder  = Beholder(args)
 
         self.decoder_trg = Speaker(native, args)
@@ -200,11 +200,11 @@ class Agent(torch.nn.Module):
         # vocab_size, num_layers, num_directions, i2w, w2i : 2 separate arguments
         super(Agent, self).__init__()
         if args.no_share_bhd:
-            print "Not sharing visual system for each agent."
+            print("Not sharing visual system for each agent.")
             self.beholder1 = Beholder(args)
             self.beholder2 = Beholder(args)
         else:
-            print "Sharing visual system for each agent."
+            print("Sharing visual system for each agent.")
             self.beholder  = Beholder(args)
 
         self.speaker = Speaker(native, args)

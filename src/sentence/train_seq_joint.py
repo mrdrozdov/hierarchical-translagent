@@ -333,7 +333,7 @@ if __name__ == '__main__':
     loss_fn = {'xent':nn.CrossEntropyLoss(), 'mse':nn.MSELoss(), 'mrl':nn.MarginRankingLoss(), 'mlml':nn.MultiLabelMarginLoss(), 'mml':nn.MultiMarginLoss()}
     tt = torch
     if not args.cpu:
-        loss_fn = {k:v.cuda() for (k,v) in loss_fn.iteritems()}
+        loss_fn = {k:v.cuda() for (k,v) in loss_fn.items()}
         tt = torch.cuda
 
     optimizer = torch.optim.Adam(in_params, lr=args.lr)
@@ -347,7 +347,7 @@ if __name__ == '__main__':
     best_bleu = {"valid":{0:0}, "test":{0:0}}
 
     train_loss_dict = get_log_loss_dict()
-    for epoch in xrange(args.num_games):
+    for epoch in range(args.num_games):
         loss = forward_joint(train_images, train_labels, model, train_loss_dict, args, loss_fn, args.num_dist, tt)
         optimizer.zero_grad()
         loss.backward()

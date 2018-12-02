@@ -16,7 +16,6 @@ import copy
 import torch
 import torch.nn as nn
 import torch.autograd as autograd
-from torch.autograd import Variable
 
 from pathlib import Path
 
@@ -107,18 +106,18 @@ if __name__ == '__main__':
     if not args.no_write and not path_dir.exists():
         path_dir.mkdir(parents=True)
 
-    print args
-    print path
-    print model_str
-    print hyperparam_str
+    print(json.dumps(args.__dict__))
+    print(path)
+    print(model_str)
+    print(hyperparam_str)
 
     train_en, valid_en, train_de, valid_de, in_keys, _ = split_bergsma(args.l1, args.l2)
     args.num_cat = len(in_keys)
 
-    in_keys = train_en.keys()
+    in_keys = list(train_en.keys())
     in_keys = np.array(in_keys)
 
-    print "In keys : {}".format(len(in_keys))
+    print("In keys : {}".format(len(in_keys)))
 
     args.tt = torch if args.cpu else torch.cuda
     model = TwoAgents(args)
@@ -131,12 +130,12 @@ if __name__ == '__main__':
         if param.requires_grad:
             params.append(param)
         else:
-            print type(param.data), param.size(), "does not require gradients."
+            print(type(param.data), param.size(), "does not require gradients.")
 
     num_params = 0
-    for idx in xrange(len(params)):
+    for idx in range(len(params)):
         num_params += np.prod(params[idx].size())
-    print "Number of trainable parameters", num_params
+    print("Number of trainable parameters", num_params)
 
     loss_fn = nn.CrossEntropyLoss().cuda()
     optimizer = torch.optim.Adam(params, lr=args.lr)
@@ -150,17 +149,17 @@ if __name__ == '__main__':
     forward_pass = forward_pass_gumbel
 
     best_val_loss_dict, best_val_epoch, best_val_acc, best_val_loss = None, -1, 0, 999999
-    for epoch in xrange(args.num_games):
+    for epoch in range(args.num_games):
 
         final_loss = forward_pass((train_en, train_de), model, loss_dict, args, loss_fn)
         optimizer.zero_grad()
         final_loss.backward()
-        total_norm = nn.utils.clip_grad_norm(params, args.grad_clip)
+        total_norm = nn.utils.clip_grad_norm_(params, args.grad_clip)
         optimizer.step()
 
         if epoch >= 0 and epoch % args.print_every == 0:
             avg_loss_dict = get_avg_from_loss_dict(loss_dict)
-            print print_loss(epoch, args.alpha, avg_loss_dict, "train")
+            print(print_loss(epoch, args.alpha, avg_loss_dict, "train"))
 
             out_data['train']['x'].append(epoch)
             out_data['train']['y'].append(avg_loss_dict)
@@ -169,11 +168,11 @@ if __name__ == '__main__':
         model.eval()
         if epoch >= 0 and epoch % args.print_every == 0:
             val_loss_dict = get_log_loss_dict()
-            for idx in xrange(args.valid_every):
+            for idx in range(args.valid_every):
                 _ = forward_pass((valid_en, valid_de), model, val_loss_dict, args, loss_fn)
 
             avg_loss_dict = get_avg_from_loss_dict(val_loss_dict)
-            print print_loss(epoch, args.alpha, avg_loss_dict, "valid")
+            print(print_loss(epoch, args.alpha, avg_loss_dict, "valid"))
             out_data['valid']['x'].append(epoch)
             out_data['valid']['y'].append(avg_loss_dict)
 
@@ -193,14 +192,14 @@ if __name__ == '__main__':
                 path_model = open( str(path_dir) + "best_model", "wb" )
                 torch.save(model.state_dict(), path_model)
                 path_model.close()
-                print "best model saved."
+                print("best model saved.")
 
                 result = model.precision(in_keys, args.batch_size)
                 out_data['translate']['x'].append(epoch)
                 out_data['translate']['y'].append(result)
 
             if epoch - best_val_epoch >= args.stop_after * args.print_every:
-                print "Validation acc not improving after {} iterations.".format(args.stop_after * args.print_every)
+                print("Validation acc not improving after {} iterations.".format(args.stop_after * args.print_every))
                 break
 
         if epoch % args.translate_every == 0:

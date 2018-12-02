@@ -5,11 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+import os
+
 from collections import OrderedDict
 import numpy as np
 
 import torch
-from torch.autograd import Variable
 
 from split import split_data_by_k
 from util import scr_path
@@ -154,33 +155,33 @@ def perc2(a):
 # l1, l2 : (500 concepts X 15-20 images X 2048 dimension)
 def take_pair_helper(l1, l2):
     a1 = cnn_mean(l1, l2)
-    print "   cnn_mean : {}".format(a1)
-    print "   cnn_mean : {}".format(perc(a1))
+    print("   cnn_mean : {}".format(a1))
+    print("   cnn_mean : {}".format(perc(a1)))
 
     a2 = cnn_max(l1, l2)
-    print "   cnn_max : {}".format(a2)
-    print "   cnn_max : {}".format(perc(a2))
+    print("   cnn_max : {}".format(a2))
+    print("   cnn_max : {}".format(perc(a2)))
 
     a3 = compute_dot_different_shape(l1, l2, "avgmax")
-    print "   cnn_avgmax : {}".format(a3)
-    print "   cnn_avgmax : {}".format(perc(a3))
+    print("   cnn_avgmax : {}".format(a3))
+    print("   cnn_avgmax : {}".format(perc(a3)))
 
     a4 = compute_dot_different_shape(l1, l2, "maxmax")
-    print "   max_max : {}".format(a4)
-    print "   max_max : {}".format(perc(a4))
+    print("   max_max : {}".format(a4))
+    print("   max_max : {}".format(perc(a4)))
 
     ans = np.array( [ perc2(x) for x in [a1, a2, a3, a4]] )
     return ans.flatten()
 
 def take_pair(l1, l2):
-    en_data = torch.load("{}/data/word/{}_2048.pt".format(scr_path(), l1))
-    de_data = torch.load("{}/data/word/{}_2048.pt".format(scr_path(), l2))
+    en_data = torch.load(os.path.join(scr_path(), "data/word/{}_2048.pt".format(l1)))
+    de_data = torch.load(os.path.join(scr_path(), "data/word/{}_2048.pt".format(l2)))
 
     keys = en_data.keys()
     keys = np.array([x for x in keys if x in de_data.keys()])
-    print "before : {} keys".format(len(keys))
+    print("before : {} keys".format(len(keys)))
     keys = [k for k in keys if len(en_data[k]) >= 5 and len(de_data[k]) >= 5 ]
-    print "after : {} keys".format(len(keys))
+    print("after : {} keys".format(len(keys)))
 
     en_data_ = [en_data[k] for k in keys]
     de_data_ = [de_data[k] for k in keys]
@@ -190,8 +191,8 @@ def take_pair(l1, l2):
     # list X torch.Tensor
     # 500 X (15-20 X 300)
 
-    print "{} {} keys {} images".format(l1.upper(), len(en_train), sum([len(x) for x in en_train]) )
-    print "{} {} keys {} images".format(l2.upper(), len(de_train), sum([len(x) for x in de_train]) )
+    print("{} {} keys {} images".format(l1.upper(), len(en_train), sum([len(x) for x in en_train]) ))
+    print("{} {} keys {} images".format(l2.upper(), len(de_train), sum([len(x) for x in de_train]) ))
 
     return take_pair_helper(en_train, de_train)
 
@@ -202,7 +203,7 @@ if __name__ == '__main__':
         for idx2 in range(len(langs)):
             if idx < idx2:
                 l1, l2 = langs[idx], langs[idx2]
-                print l1, l2
+                print(l1, l2)
                 result = take_pair(l1, l2)
                 results[l1 + " " + l2] = result
-    print results
+    print(results)

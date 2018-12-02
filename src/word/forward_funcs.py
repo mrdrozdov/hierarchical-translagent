@@ -17,7 +17,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.autograd as autograd
-from torch.autograd import Variable
 
 from util import *
 from models import *
@@ -25,8 +24,8 @@ from split import *
 from load_data import *
 
 def forward_pass_gumbel(data, model, loss_dict, args, loss_fn):
-    data1 = next_batch_dist_batch(data[0], args.batch_size, args.num_dist, args.num_cat) # [spk_img, lst_imgs, label_onehot, label, which]
-    data2 = next_batch_dist_batch(data[1], args.batch_size, args.num_dist, args.num_cat)
+    data1 = next_batch_dist_batch(data[0], args.batch_size, args.num_dist, args.num_cat, args.cpu) # [spk_img, lst_imgs, label_onehot, label, which]
+    data2 = next_batch_dist_batch(data[1], args.batch_size, args.num_dist, args.num_cat, args.cpu)
 
     # spk_imgs : (batch_size, 2048)
     # lsn_imgs : (batch_size, num_dist, 2048)
@@ -55,7 +54,7 @@ def forward_pass_gumbel(data, model, loss_dict, args, loss_fn):
                 if not args.lsn_loss_only:
                     final_loss += loss
 
-            loss_dict[direction][person]["loss"].update(loss.data[0])
+            loss_dict[direction][person]["loss"].update(loss.item())
             loss_dict[direction][person]["acc"].update(acc*100)
 
     return final_loss

@@ -75,7 +75,7 @@ class Logger(object):
     def __init__(self, path, no_write=False, no_terminal=False):
         self.no_write = no_write
         if self.no_write:
-            print "Don't write to file"
+            print("Don't write to file")
         else:
             self.log = codecs.open(path+"log.log", "wb", encoding="utf8")
 
@@ -123,7 +123,7 @@ def sort_per_len(caps):
 
 def trim_caps(caps, minlen, maxlen):
     new_cap = [ [ cap for cap in cap_i if len(cap) <= maxlen and len(cap) >= minlen] for cap_i in caps]
-    print "Before : {} captions / After : {} captions".format( sum_num_captions(caps), sum_num_captions(new_cap) )
+    print("Before : {} captions / After : {} captions".format( sum_num_captions(caps), sum_num_captions(new_cap) ))
     return new_cap
 
 def print_params_naka(names, sizes):
@@ -285,9 +285,9 @@ def get_log_loss_dict():
 
 def get_avg_from_loss_dict(log_loss_dict):
     res = get_loss_dict()
-    for k1, v1 in log_loss_dict.iteritems(): # en_agent / fr_agent
-        for k2, v2 in v1.iteritems(): # spk / lsn
-            for k3, v3 in v2.iteritems(): # loss / acc
+    for k1, v1 in log_loss_dict.items(): # en_agent / fr_agent
+        for k2, v2 in v1.items(): # spk / lsn
+            for k3, v3 in v2.items(): # loss / acc
                 res[k1][k2][k3] = v3.avg
     return res
 
@@ -313,13 +313,13 @@ def l3_print_loss(epoch, alpha, avg_loss_dict, mode="train"):
 def print_loss(epoch, alpha, avg_loss_dict, mode="train"):
     prt_msg = "epoch {:5d} {} ".format(epoch, mode)
     #avg_loss_dict = get_avg_from_loss_dict(loss_dict)
-    #for k1, v1 in avg_loss_dict.iteritems():
+    #for k1, v1 in avg_loss_dict.items():
     for agent in "l1 l2".split():
         prt_msg += "| " # en_agent / fr_agent
-        #for k2, v2 in v1.iteritems():
+        #for k2, v2 in v1.items():
         for person in "spk lsn".split():
             prt_msg += " {}_{}".format(agent, person) # spk / lsn
-            #for k3, v3 in v2.iteritems(): # loss / acc
+            #for k3, v3 in v2.items(): # loss / acc
             if person == "spk":
                 prt_msg += " {:.3f}".format(avg_loss_dict[agent][person]["loss"])
             elif person == "lsn":

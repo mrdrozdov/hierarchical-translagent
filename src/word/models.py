@@ -7,29 +7,28 @@
 
 import math
 import sys
-import cPickle as pkl
+import pickle as pkl
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 
 from util import *
 
 def sample_gumbel(shape, tt=torch, eps=1e-20):
-    U = Variable(tt.FloatTensor(shape).uniform_(0, 1))
+    U = tt.FloatTensor(shape).uniform_(0, 1)
     return -torch.log(-torch.log(U + eps) + eps)
 
 def gumbel_softmax_sample(logits, temp, tt=torch):
     y = ( logits + sample_gumbel(logits.size(), tt) ) / temp
-    return F.softmax(y)
+    return F.softmax(y, dim=1)
 
 def gumbel_softmax(logits, temp, hard, tt=torch):
     y = gumbel_softmax_sample(logits, temp, tt) # (batch_size, num_cat)
     y_max, y_max_idx = torch.max(y, 1, keepdim=True)
     if hard:
         y_hard = tt.FloatTensor(y.size()).zero_().scatter_(1, y_max_idx.data, 1)
-        y = Variable( y_hard - y.data, requires_grad=False ) + y
+        y = (y_hard - y.data).data + y
 
     return y, y_max_idx
 
@@ -39,6 +38,7 @@ class TwoAgents(torch.nn.Module):
         self.agent1 = Agent(args.l1, args.l2, args)
         self.agent2 = Agent(args.l2, args.l1, args)
 
+        self._cpu = args.cpu
         self.agents = [self.agent1, self.agent2]
         self.num_cat = args.num_cat
         self.no_share_bhd = args.no_share_bhd
@@ -47,6 +47,11 @@ class TwoAgents(torch.nn.Module):
         self.D_hid = args.D_hid
         self.l1 = args.l1
         self.l2 = args.l2
+
+    def xp(self, x):
+        if not self._cpu:
+            return x.cuda()
+        return x
 
     def forward(self, data1, data2):
         a_spk_img, b_lsn_imgs = data1 # spk_imgs : (batch_size, 2048)
@@ -70,8 +75,8 @@ class TwoAgents(torch.nn.Module):
             # comm_onehot : (batch_size, num_cat)
             # comm_action : (batch_size)
 
-            comm_onehots.append(comm_onehot.cuda())
-            comm_actions.append(comm_action.cuda())
+            comm_onehots.append(self.xp(comm_onehot))
+            comm_actions.append(self.xp(comm_action))
 
         comm_onehots = comm_onehots[::-1] # [b, a]
 
@@ -102,34 +107,38 @@ class TwoAgents(torch.nn.Module):
         onehot1 = torch.FloatTensor(batch_size, self.num_cat)
         onehot1.zero_()
         onehot1.scatter_(1, labels, 1)
-        onehot1 = Variable(onehot1, requires_grad=False).cuda()
+        onehot1 = self.xp(onehot1.data)
 
         if sample:
             logits1 = self.agent2.translate(onehot1)
             onehot2, idx2 = sample_logit_to_onehot(logits1)
+            onehot2 = self.xp(onehot2)
 
             logits2 = self.agent1.translate(onehot2)
             onehot3, idx3 = sample_logit_to_onehot(logits2)
+            onehot3 = self.xp(onehot3)
 
         else:
             logits1 = self.agent2.translate(onehot1)
             onehot2, idx2 = max_logit_to_onehot(logits1)
+            onehot2 = self.xp(onehot2)
 
             logits2 = self.agent1.translate(onehot2)
             onehot3, idx3 = max_logit_to_onehot(logits2)
+            onehot3 = self.xp(onehot3)
 
         _, indices1 = torch.sort(logits1, 1, descending=True)
         _, indices2 = torch.sort(logits2, 1, descending=True)
         indices1 = indices1.cpu().data.numpy()
         indices2 = indices2.cpu().data.numpy()
 
-        for idx in xrange(labels.nelement()):
-            #print u"{:>25} -> {:>25} -> {:>25}".format(l1_dic[labels[idx][0]], l2_dic[idx2[idx][0]], l1_dic[idx3[idx][0]])
+        for idx in range(labels.nelement()):
+            #print(u"{:>25} -> {:>25} -> {:>25}".format(l1_dic[labels[idx][0]], l2_dic[idx2[idx][0]], l1_dic[idx3[idx][0]]))
             if print_neighbours:
                 for k in range(5):
-                    print u"{:>25} -> {:>25}".format(l1_dic[labels[idx][0]], l2_dic[indices1[idx][k]])
+                    print(u"{:>25} -> {:>25}".format(l1_dic[labels[idx][0]], l2_dic[indices1[idx][k]]))
                 for k in range(5):
-                    print u"{:>25}    {:>25} -> {:>25}".format("", l2_dic[idx2[idx][0]], l1_dic[indices2[idx][k]])
+                    print(u"{:>25}    {:>25} -> {:>25}".format("", l2_dic[idx2[idx][0]], l1_dic[indices2[idx][k]]))
 
             if labels[idx][0] == idx2[idx][0]:
                 right1 =1
@@ -142,11 +151,11 @@ class TwoAgents(torch.nn.Module):
                 right2= 0
             result[right1][right2].append( (l1_dic[labels[idx][0]], l2_dic[idx2[idx][0]], l1_dic[idx3[idx][0]]) )
             if right2 == 0 or right1 == 0:
-                print (right1, right2)
+                print((right1, right2))
                 for k in range(5):
-                    print u"{:>25} -> {:>25}".format(l1_dic[labels[idx][0]], l2_dic[indices1[idx][k]])
+                    print(u"{:>25} -> {:>25}".format(l1_dic[labels[idx][0]], l2_dic[indices1[idx][k]]))
                 for k in range(5):
-                    print u"{:>25}    {:>25} -> {:>25}".format("", l2_dic[idx2[idx][0]], l1_dic[indices2[idx][k]])
+                    print(u"{:>25}    {:>25} -> {:>25}".format("", l2_dic[idx2[idx][0]], l1_dic[indices2[idx][k]]))
         return result
 
     def en2de(self, onehot):
@@ -160,6 +169,7 @@ class TwoAgents(torch.nn.Module):
     def en2de2en(self, onehot):
         logits1 = self.agent2.translate(onehot)
         onehot2, _ = max_logit_to_onehot(logits1)
+        onehot2 = self.xp(onehot2)
         logits2 = self.agent1.translate(onehot2)
         return logits2
 
@@ -173,7 +183,7 @@ class TwoAgents(torch.nn.Module):
         for which_round, round_ in enumerate(rounds):
             acc = [[0,0] for x in range(len(ks))]
             cnt = 0
-            for batch_idx in xrange(int(math.ceil( float(len(keys)) / bs ) ) ):
+            for batch_idx in range(int(math.ceil( float(len(keys)) / bs ) ) ):
                 labels_ = np.arange(batch_idx * bs , min(len(keys), (batch_idx+1) * bs ) )
                 labels_ = keys[labels_]
                 batch_size = len(labels_)
@@ -181,12 +191,12 @@ class TwoAgents(torch.nn.Module):
 
                 labels = torch.LongTensor(labels_).view(-1)
                 labels = torch.unsqueeze(labels, 1)
-                labels = Variable(labels, requires_grad=False).cuda()
+                labels = self.xp(labels.data)
 
                 onehot = torch.FloatTensor(batch_size, self.num_cat)
                 onehot.zero_()
                 onehot.scatter_(1, labels.data.cpu(), 1)
-                onehot = Variable(onehot, requires_grad=False).cuda()
+                onehot = self.xp(onehot.data)
 
                 if which_round == 0:
                     logits = self.en2de(onehot)
@@ -207,7 +217,7 @@ class TwoAgents(torch.nn.Module):
                 curr_acc = float(acc[prec_idx][0]) / acc[prec_idx][1] * 100
                 result.append( curr_acc )
                 pm += "| P@{} {:.2f}% ".format(k, curr_acc )
-            print pm
+            print(pm)
 
         return result
 
@@ -215,11 +225,11 @@ class Agent(torch.nn.Module):
     def __init__(self, native, foreign, args):
         super(Agent, self).__init__()
         if args.no_share_bhd:
-            print "Not sharing visual system for each agent."
+            print("Not sharing visual system for each agent.")
             self.beholder1 = Beholder(args.D_img, args.D_hid, args.dropout)
             self.beholder2 = Beholder(args.D_img, args.D_hid, args.dropout)
         else:
-            print "Sharing visual system for each agent."
+            print("Sharing visual system for each agent.")
             self.beholder = Beholder(args.D_img, args.D_hid, args.dropout)
 
         self.speaker = Speaker(native, foreign, args.D_hid, args.num_cat, args.dropout, args.temp, args.hard, args.tt)
@@ -288,7 +298,7 @@ class Speaker(torch.nn.Module):
         logits_sorted, indices = torch.sort(ans, dim=0, descending=True)
         indices = indices[:5].cpu().numpy()
 
-        print u"{} -> {}".format(l1_dic[idx].decode('utf8'), u", ".join([u"{} ({})".format(l1_dic[idx1].decode('utf-8'), "{:0.2f}".format(ans[idx1])) for idx1 in indices]))
+        print(u"{} -> {}".format(l1_dic[idx].decode('utf8'), u", ".join([u"{} ({})".format(l1_dic[idx1], "{:0.2f}".format(ans[idx1])) for idx1 in indices])))
 
 class Listener(torch.nn.Module):
     def __init__(self, native, foreign, D_hid, num_cat, dropout):
@@ -340,5 +350,5 @@ class Listener(torch.nn.Module):
         logits_sorted, indices = torch.sort(ans, dim=0, descending=True)
         indices = indices[:5].cpu().numpy()
 
-        print u"{} -> {}".format(l1_dic[idx].decode('utf-8'), u", ".join([u"{} ({})".format(l1_dic[idx1].decode('utf-8'), "{:0.2f}".format(ans[idx1])) for idx1 in indices]))
+        print(u"{} -> {}".format(l1_dic[idx], u", ".join([u"{} ({})".format(l1_dic[idx1], "{:0.2f}".format(ans[idx1])) for idx1 in indices])))
 

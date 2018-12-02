@@ -26,7 +26,7 @@ def next_batch_joint(images, labels, batch_size, num_dist, tt):
     keys = range(len(images))
     assert len(keys) >= num_dist
 
-    for batch_idx in xrange(batch_size):
+    for batch_idx in range(batch_size):
         img_indices = random.choice( keys, num_dist, replace=False ) # (num_dist)
 
         num_caps = [len(labels[label]) for label in img_indices] # (num_dist)
